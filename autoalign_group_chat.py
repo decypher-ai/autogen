@@ -1,6 +1,11 @@
+import json
+import os
+import aiohttp
 import re
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Tuple, Union
+
+import requests
 
 from autoalign_assistant_agent import AutoALignAssistantAgent
 from autogen import ConversableAgent, GroupChat, Agent, GroupChatManager, NoEligibleSpeaker, ChatResult
@@ -60,6 +65,45 @@ agent: {name}
 system message:{system_message}
 response: {response}
 Answer ('Yes' or 'No'):"""
+
+DEFAULT_CONFIG = {
+    "pii_fast": {
+        "mode": "OFF",
+        "mask": False,
+        "enabled_types": [
+            "[BANK ACCOUNT NUMBER]",
+            "[CREDIT CARD NUMBER]",
+            "[DATE OF BIRTH]",
+            "[DATE]",
+            "[DRIVER LICENSE NUMBER]",
+            "[EMAIL ADDRESS]",
+            "[RACE/ETHNICITY]",
+            "[GENDER]",
+            "[IP ADDRESS]",
+            "[LOCATION]",
+            "[MONEY]",
+            "[ORGANIZATION]",
+            "[PASSPORT NUMBER]",
+            "[PASSWORD]",
+            "[PERSON NAME]",
+            "[PHONE NUMBER]",
+            "[PROFESSION]",
+            "[SOCIAL SECURITY NUMBER]",
+            "[USERNAME]",
+            "[SECRET_KEY]",
+            "[TRANSACTION_ID]",
+            "[RELIGION]",
+        ],
+    },
+    "confidential_detection": {"mode": "OFF"},
+    "gender_bias_detection": {"mode": "OFF"},
+    "harm_detection": {"mode": "OFF"},
+    "text_toxicity_extraction": {"mode": "OFF"},
+    "racial_bias_detection": {"mode": "OFF"},
+    "tonal_detection": {"mode": "OFF"},
+    "jailbreak_detection": {"mode": "OFF"},
+    "intellectual_property": {"mode": "OFF"},
+}
 
 
 class AutoAlignVerifier:
@@ -219,6 +263,67 @@ class AutoAlignVerifier:
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
         return reply
 
+    @staticmethod
+    def check_guardrails(request_url: str, text: str, selected_guardrails: List[str]):
+        """Checks whether the given text passes through the applied guardrails."""
+        config = DEFAULT_CONFIG.copy()
+        for task in selected_guardrails:
+            config[task]['mode'] = "DETECT"
+
+        request_body = {
+            "prompt": text,
+            "config": config
+        }
+
+        header = {
+            "x-api-key": "6JuGgNmtWskCnumZ9Y3Zl7mz5ikz6373"
+        }
+        json_data = json.dumps(request_body).encode('utf8')
+        s = requests.Session()
+        guard_response = []
+        with s.post(request_url, data=json_data, headers=header, stream=True) as resp:
+            for line in resp.iter_lines():
+                guard_response.append(json.loads(line))
+        for resp in guard_response:
+            if resp['guarded']:
+                return True
+        return False
+
+    @staticmethod
+    async def a_check_guardrails(request_url: str, text: str, selected_guardrails: List[str]):
+        """Checks whether the given text passes through the applied guardrails."""
+        config = DEFAULT_CONFIG.copy()
+        for task in selected_guardrails:
+            config[task]['mode'] = "DETECT"
+
+        request_body = {
+            "prompt": text,
+            "config": config
+        }
+
+        header = {
+            "x-api-key": "6JuGgNmtWskCnumZ9Y3Zl7mz5ikz6373"
+        }
+        json_data = json.dumps(request_body).encode('utf8')
+        guard_response = []
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    url=request_url,
+                    headers=header,
+                    json=request_body,
+            ) as response:
+                if response.status != 200:
+                    raise ValueError(
+                        f"AutoAlign call failed with status code {response.status}.\n"
+                        f"Details: {await response.text()}"
+                    )
+                async for line in response.content:
+                    guard_response.append(json.loads(line))
+        for resp in guard_response:
+            if resp['guarded']:
+                return True
+        return False
+
     def validate_speaker_output(self, speaker: ConversableAgent, messages: Optional[List[Dict]], reply: str) -> bool:
         """
         This function executes the validation/verification logic for the generated response.
@@ -299,7 +404,7 @@ class AutoAlignVerifier:
         system_message = VERIFIER_AGENT_SYSTEM_PROMPT
         # Agent for selecting a single agent name from the response
         verifier_agent = ConversableAgent(
-            "speaker_selection_agent",
+            "verifier_agent",
             system_message=system_message,
             chat_messages={checking_agent: messages.copy()},
             llm_config=speaker.llm_config,
@@ -661,10 +766,12 @@ class AutoAlignGroupChatManager(GroupChatManager):
     reply to all the agents. The design pattern it follows is the 'observer pattern'.
     """
 
-    def __init__(self, groupchat: GroupChat, model_client_cls: Optional = None, **kwargs):
+    def __init__(self, groupchat: GroupChat, model_client_cls: Optional = None,
+                 selected_guardrails: Optional[List[str]] = None, **kwargs):
         super().__init__(groupchat, **kwargs)
         # we will replace the existing reply functions with our functions that contain guardrail inference
         self.model_client_cls = model_client_cls
+        self.selected_guardrails = selected_guardrails
         self.replace_reply_func(GroupChatManager.run_chat, AutoAlignGroupChatManager.run_chat)
         self.replace_reply_func(GroupChatManager.a_run_chat, AutoAlignGroupChatManager.a_run_chat)
 
@@ -710,14 +817,28 @@ class AutoAlignGroupChatManager(GroupChatManager):
             try:
                 # select the next speaker
                 speaker = groupchat.select_speaker(speaker, self)
-                # let the speaker speak
-                reply = speaker.generate_reply(sender=self)
-                # AutoAlign Verification and Mitigation
-                # here 'speaker' refers to the agent, and we will apply the
-                # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
+
                 if isinstance(speaker, AutoALignAssistantAgent):
                     autoalign_verifier = AutoAlignVerifier()
+                    guardrail_flag = autoalign_verifier.check_guardrails(
+                        request_url="https://app.autoalign.ai/service/guardrail",
+                        text=message['content'] if isinstance(message,
+                                                              dict) else message,
+                        selected_guardrails=self.selected_guardrails)
+                    if guardrail_flag:
+                        reply = {"role": "assistant", "name":speaker.name, "content": "AutoAlign policy violated."}
+                    # let the speaker speak
+                    reply = speaker.generate_reply(sender=self)
+                    # AutoAlign Verification and Mitigation
+                    # here 'speaker' refers to the agent, and we will apply the
+                    # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
                     reply = autoalign_verifier.verify_and_mitigate_response(speaker, reply, messages, self)
+                    guardrail_flag = autoalign_verifier.check_guardrails(
+                        request_url="https://app.autoalign.ai/service/guardrail",
+                        text=reply['content'] if isinstance(reply, dict) else reply,
+                        selected_guardrails=self.selected_guardrails)
+                    if guardrail_flag:
+                        reply = {"role":"assistant", "name":speaker.name, "content": "AutoAlign policy violated."}
 
             except KeyboardInterrupt:
                 # let the admin agent speak if interrupted
@@ -806,11 +927,27 @@ class AutoAlignGroupChatManager(GroupChatManager):
                 # AutoAlign Verification and Mitigation
                 # here 'speaker' refers to the agent, and we will apply the
                 # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
-                prompt = message['content']
-                completion = reply['content'] if isinstance(reply, dict) else reply
                 if isinstance(speaker, AutoALignAssistantAgent):
                     autoalign_verifier = AutoAlignVerifier()
+                    guardrail_flag = await autoalign_verifier.a_check_guardrails(
+                        request_url="https://app.autoalign.ai/service/guardrail",
+                        text=message['content'] if isinstance(message,
+                                                              dict) else message,
+                        selected_guardrails=self.selected_guardrails)
+                    if guardrail_flag:
+                        reply = {"role": "assistant", "name": speaker.name, "content": "AutoAlign policy violated."}
+                    # let the speaker speak
+                    reply = await speaker.a_generate_reply(sender=self)
+                    # AutoAlign Verification and Mitigation
+                    # here 'speaker' refers to the agent, and we will apply the
+                    # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
                     reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker, reply, messages, self)
+                    guardrail_flag = await autoalign_verifier.a_check_guardrails(
+                        request_url="https://app.autoalign.ai/service/guardrail",
+                        text=reply['content'] if isinstance(reply, dict) else reply,
+                        selected_guardrails=self.selected_guardrails)
+                    if guardrail_flag:
+                        reply = {"role": "assistant", "name": speaker.name, "content": "AutoAlign policy violated."}
 
             except KeyboardInterrupt:
                 # let the admin agent speak if interrupted
