@@ -276,7 +276,7 @@ class AutoAlignVerifier:
         }
 
         header = {
-            "x-api-key": "6JuGgNmtWskCnumZ9Y3Zl7mz5ikz6373"
+            "x-api-key": os.getenv("AUTOALIGN_API_KEY")
         }
         json_data = json.dumps(request_body).encode('utf8')
         s = requests.Session()
