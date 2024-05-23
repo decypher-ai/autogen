@@ -274,9 +274,12 @@ class AutoAlignVerifier:
             "prompt": text,
             "config": config
         }
+        api_key = os.getenv("AUTOALIGN_API_KEY")
+        if api_key is None:
+            raise ValueError("Please AUTOALIGN_API_KEY as an environment variable")
 
         header = {
-            "x-api-key": os.getenv("AUTOALIGN_API_KEY")
+            "x-api-key": api_key
         }
         json_data = json.dumps(request_body).encode('utf8')
         s = requests.Session()
@@ -817,28 +820,41 @@ class AutoAlignGroupChatManager(GroupChatManager):
             try:
                 # select the next speaker
                 speaker = groupchat.select_speaker(speaker, self)
-
-                if isinstance(speaker, AutoALignAssistantAgent):
-                    autoalign_verifier = AutoAlignVerifier()
-                    guardrail_flag = autoalign_verifier.check_guardrails(
-                        request_url="https://app.autoalign.ai/service/guardrail",
-                        text=message['content'] if isinstance(message,
-                                                              dict) else message,
-                        selected_guardrails=self.selected_guardrails)
-                    if guardrail_flag:
-                        reply = {"role": "assistant", "name":speaker.name, "content": "AutoAlign policy violated."}
-                    # let the speaker speak
+                if not isinstance(speaker, AutoALignAssistantAgent):
                     reply = speaker.generate_reply(sender=self)
-                    # AutoAlign Verification and Mitigation
-                    # here 'speaker' refers to the agent, and we will apply the
-                    # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
-                    reply = autoalign_verifier.verify_and_mitigate_response(speaker, reply, messages, self)
-                    guardrail_flag = autoalign_verifier.check_guardrails(
-                        request_url="https://app.autoalign.ai/service/guardrail",
-                        text=reply['content'] if isinstance(reply, dict) else reply,
-                        selected_guardrails=self.selected_guardrails)
-                    if guardrail_flag:
-                        reply = {"role":"assistant", "name":speaker.name, "content": "AutoAlign policy violated."}
+                else:
+                    autoalign_verifier = AutoAlignVerifier()
+                    input_guardrail_flag = False
+
+                    prompt = message['content'] if isinstance(message, dict) else message
+                    if self.selected_guardrails and prompt:
+                        input_guardrail_flag = autoalign_verifier.check_guardrails(
+                            request_url="https://app.autoalign.ai/service/guardrail",
+                            text=prompt,
+                            selected_guardrails=self.selected_guardrails)
+
+                    if input_guardrail_flag:
+                        print("----------------Policy violated-------------------")
+                        reply = {"role": "assistant", "name": speaker.name,
+                                 "content": "AutoAlign policy violated."}
+                    else:
+                        # let the speaker speak
+                        reply = speaker.generate_reply(sender=self)
+                        # AutoAlign Verification and Mitigation
+                        # here 'speaker' refers to the agent, and we will apply the
+                        # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
+                        reply = autoalign_verifier.verify_and_mitigate_response(speaker, reply, messages, self)
+                        output_guardrail_flag = False
+                        if self.selected_guardrails:
+                            output_guardrail_flag = autoalign_verifier.check_guardrails(
+                                request_url="https://app.autoalign.ai/service/guardrail",
+                                text=reply['content'] if isinstance(reply, dict) else reply,
+                                selected_guardrails=self.selected_guardrails)
+
+                        if output_guardrail_flag:
+                            print("----------------Policy violated-------------------")
+                            reply = {"role": "assistant", "name": speaker.name,
+                                     "content": "AutoAlign policy violated."}
 
             except KeyboardInterrupt:
                 # let the admin agent speak if interrupted
@@ -922,32 +938,38 @@ class AutoAlignGroupChatManager(GroupChatManager):
                 # select the next speaker
                 speaker = await groupchat.a_select_speaker(speaker, self)
                 # let the speaker speak
-                reply = await speaker.a_generate_reply(sender=self)
-
-                # AutoAlign Verification and Mitigation
-                # here 'speaker' refers to the agent, and we will apply the
-                # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
-                if isinstance(speaker, AutoALignAssistantAgent):
-                    autoalign_verifier = AutoAlignVerifier()
-                    guardrail_flag = await autoalign_verifier.a_check_guardrails(
-                        request_url="https://app.autoalign.ai/service/guardrail",
-                        text=message['content'] if isinstance(message,
-                                                              dict) else message,
-                        selected_guardrails=self.selected_guardrails)
-                    if guardrail_flag:
-                        reply = {"role": "assistant", "name": speaker.name, "content": "AutoAlign policy violated."}
-                    # let the speaker speak
+                if not isinstance(speaker, AutoALignAssistantAgent):
                     reply = await speaker.a_generate_reply(sender=self)
-                    # AutoAlign Verification and Mitigation
-                    # here 'speaker' refers to the agent, and we will apply the
-                    # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
-                    reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker, reply, messages, self)
-                    guardrail_flag = await autoalign_verifier.a_check_guardrails(
-                        request_url="https://app.autoalign.ai/service/guardrail",
-                        text=reply['content'] if isinstance(reply, dict) else reply,
-                        selected_guardrails=self.selected_guardrails)
-                    if guardrail_flag:
-                        reply = {"role": "assistant", "name": speaker.name, "content": "AutoAlign policy violated."}
+                else:
+                    autoalign_verifier = AutoAlignVerifier()
+                    input_guardrail_flag = False
+
+                    prompt = message['content'] if isinstance(message, dict) else message
+                    if self.selected_guardrails and prompt:
+                        input_guardrail_flag = await autoalign_verifier.a_check_guardrails(
+                            request_url="https://app.autoalign.ai/service/guardrail",
+                            text=prompt,
+                            selected_guardrails=self.selected_guardrails)
+                    if input_guardrail_flag:
+                        reply = {"role": "assistant", "name": speaker.name,
+                                 "content": "AutoAlign policy violated."}
+                    else:
+                        # let the speaker speak
+                        reply = await speaker.a_generate_reply(sender=self)
+                        # AutoAlign Verification and Mitigation
+                        # here 'speaker' refers to the agent, and we will apply the
+                        # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
+                        reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker, reply, messages, self)
+                        output_guardrail_flag = False
+                        if self.selected_guardrails:
+                            output_guardrail_flag = await autoalign_verifier.a_check_guardrails(
+                                request_url="https://app.autoalign.ai/service/guardrail",
+                                text=reply['content'] if isinstance(reply, dict) else reply,
+                                selected_guardrails=self.selected_guardrails)
+
+                        if output_guardrail_flag:
+                            reply = {"role": "assistant", "name": speaker.name,
+                                     "content": "AutoAlign policy violated."}
 
             except KeyboardInterrupt:
                 # let the admin agent speak if interrupted
