@@ -770,10 +770,12 @@ class AutoAlignGroupChatManager(GroupChatManager):
     """
 
     def __init__(self, groupchat: GroupChat, model_client_cls: Optional = None,
+                 request_url: Optional[str] = None,
                  selected_guardrails: Optional[List[str]] = None, **kwargs):
         super().__init__(groupchat, **kwargs)
         # we will replace the existing reply functions with our functions that contain guardrail inference
         self.model_client_cls = model_client_cls
+        self.request_url = request_url
         self.selected_guardrails = selected_guardrails
         self.replace_reply_func(GroupChatManager.run_chat, AutoAlignGroupChatManager.run_chat)
         self.replace_reply_func(GroupChatManager.a_run_chat, AutoAlignGroupChatManager.a_run_chat)
@@ -827,9 +829,9 @@ class AutoAlignGroupChatManager(GroupChatManager):
                     input_guardrail_flag = False
 
                     prompt = message['content'] if isinstance(message, dict) else message
-                    if self.selected_guardrails and prompt:
+                    if self.request_url and self.selected_guardrails and prompt:
                         input_guardrail_flag = autoalign_verifier.check_guardrails(
-                            request_url="https://app.autoalign.ai/service/guardrail",
+                            request_url=self.request_url,
                             text=prompt,
                             selected_guardrails=self.selected_guardrails)
 
@@ -845,9 +847,9 @@ class AutoAlignGroupChatManager(GroupChatManager):
                         # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
                         reply = autoalign_verifier.verify_and_mitigate_response(speaker, reply, messages, self)
                         output_guardrail_flag = False
-                        if self.selected_guardrails:
+                        if self.request_url and self.selected_guardrails:
                             output_guardrail_flag = autoalign_verifier.check_guardrails(
-                                request_url="https://app.autoalign.ai/service/guardrail",
+                                request_url=self.request_url,
                                 text=reply['content'] if isinstance(reply, dict) else reply,
                                 selected_guardrails=self.selected_guardrails)
 
@@ -945,9 +947,9 @@ class AutoAlignGroupChatManager(GroupChatManager):
                     input_guardrail_flag = False
 
                     prompt = message['content'] if isinstance(message, dict) else message
-                    if self.selected_guardrails and prompt:
+                    if self.request_url and self.selected_guardrails and prompt:
                         input_guardrail_flag = await autoalign_verifier.a_check_guardrails(
-                            request_url="https://app.autoalign.ai/service/guardrail",
+                            request_url=self.request_url,
                             text=prompt,
                             selected_guardrails=self.selected_guardrails)
                     if input_guardrail_flag:
@@ -961,9 +963,9 @@ class AutoAlignGroupChatManager(GroupChatManager):
                         # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
                         reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker, reply, messages, self)
                         output_guardrail_flag = False
-                        if self.selected_guardrails:
+                        if self.request_url and self.selected_guardrails:
                             output_guardrail_flag = await autoalign_verifier.a_check_guardrails(
-                                request_url="https://app.autoalign.ai/service/guardrail",
+                                request_url=self.request_url,
                                 text=reply['content'] if isinstance(reply, dict) else reply,
                                 selected_guardrails=self.selected_guardrails)
 
