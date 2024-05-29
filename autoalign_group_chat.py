@@ -3,12 +3,12 @@ import os
 import aiohttp
 import re
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Tuple, Union
+from typing import Optional,List,Dict,Any,Tuple,Union
 
 import requests
 
 from autoalign_assistant_agent import AutoALignAssistantAgent
-from autogen import ConversableAgent, GroupChat, Agent, GroupChatManager, NoEligibleSpeaker, ChatResult
+from autogen import ConversableAgent,GroupChat,Agent,GroupChatManager,NoEligibleSpeaker,ChatResult
 from autogen.code_utils import content_str
 
 NEW_MITIGATION_PROMPT = "We received the following response from you: {completion}. " \
@@ -107,7 +107,7 @@ DEFAULT_CONFIG = {
 
 
 class AutoAlignVerifier:
-    def __init__(self, model_client_cls: Any = None) -> None:
+    def __init__(self,model_client_cls: Any = None) -> None:
         """
         This is the class which holds all the verification logic
         You can find the system messages and some prompt templates above
@@ -117,9 +117,9 @@ class AutoAlignVerifier:
         """
         self.model_client_cls = model_client_cls
 
-    def verify_and_mitigate_response(self, speaker: AutoALignAssistantAgent, reply: Union[str, Dict[str, Any]],
-                                     messages: List[Union[str, Dict]],
-                                     sender: ConversableAgent) -> Union[str, Dict[str, Any]]:
+    def verify_and_mitigate_response(self,speaker: AutoALignAssistantAgent,reply: Union[str,Dict[str,Any]],
+                                     messages: List[Union[str,Dict]],
+                                     sender: ConversableAgent) -> Union[str,Dict[str,Any]]:
         """
         This function verifies and mitigates the response iteratively, at every try it verifies whether the generated
         response/reply is appropriate or not. Based on the verifier's response mitigation logic is applied which
@@ -137,19 +137,19 @@ class AutoAlignVerifier:
         """
         trial = 0
         while trial < 5:
-            mitigation_required = self.validate_speaker_output(speaker, messages, reply)
+            mitigation_required = self.validate_speaker_output(speaker,messages,reply)
             if mitigation_required:
                 trial += 1
-                reply = self.mitigate_response(speaker, reply, trial, sender)
+                reply = self.mitigate_response(speaker,reply,trial,sender)
                 if trial == 5:
                     print("%%%%%%%%%%%%%%%%%% Max trials reached %%%%%%%%%%%%%%%%%%%%%%\n")
             else:
                 break
         return reply
 
-    async def a_verify_and_mitigate_response(self, speaker: AutoALignAssistantAgent, reply: Union[str, Dict[str, Any]],
-                                             messages: List[Union[str, Dict]],
-                                             sender: ConversableAgent) -> Union[str, Dict[str, Any]]:
+    async def a_verify_and_mitigate_response(self,speaker: AutoALignAssistantAgent,reply: Union[str,Dict[str,Any]],
+                                             messages: List[Union[str,Dict]],
+                                             sender: ConversableAgent) -> Union[str,Dict[str,Any]]:
         """
         This is the asynchronous version of above function.
         This function verifies and mitigates the response iteratively, at every try it verifies whether the generated
@@ -168,10 +168,10 @@ class AutoAlignVerifier:
         """
         trial = 0
         while trial < 5:
-            mitigation_required = self.a_validate_speaker_output(speaker, messages, reply)
+            mitigation_required = self.a_validate_speaker_output(speaker,messages,reply)
             if mitigation_required:
                 trial += 1
-                reply = await self.a_mitigate_response(speaker, reply, trial, sender)
+                reply = await self.a_mitigate_response(speaker,reply,trial,sender)
                 if trial == 5:
                     print("%%%%%%%%%%%%%%%%%% Max trials reached %%%%%%%%%%%%%%%%%%%%%%\n")
             else:
@@ -179,8 +179,8 @@ class AutoAlignVerifier:
         return reply
 
     @staticmethod
-    def mitigate_response(speaker: ConversableAgent, reply: Union[str, Dict[str, Any]], trial: int,
-                          sender: ConversableAgent) -> Union[str, Dict[str, Any]]:
+    def mitigate_response(speaker: ConversableAgent,reply: Union[str,Dict[str,Any]],trial: int,
+                          sender: ConversableAgent) -> Union[str,Dict[str,Any]]:
         """
         This function runs the mitigation logic that is asks the speaker to regenerate the response.
 
@@ -194,17 +194,17 @@ class AutoAlignVerifier:
             Union[str, Dict[str, Any]]: Mitigated response
 
         """
-        completion = reply['content'] if isinstance(reply, dict) else reply
+        completion = reply['content'] if isinstance(reply,dict) else reply
 
-        def autoalign_mitigation_flow(received_messages: list[dict[str, Any]] | None):
+        def autoalign_mitigation_flow(received_messages: list[dict[str,Any]] | None):
             new_message_content = NEW_MITIGATION_PROMPT.format(completion=completion)
             if received_messages is not None:
-                received_messages.append({"role": "user", "content": new_message_content})
+                received_messages.append({"role": "user","content": new_message_content})
                 return received_messages
             else:
-                return [{"role": "user", "content": new_message_content}]
+                return [{"role": "user","content": new_message_content}]
 
-        speaker.register_hook("process_all_messages_before_reply", autoalign_mitigation_flow)
+        speaker.register_hook("process_all_messages_before_reply",autoalign_mitigation_flow)
         reply = speaker.generate_reply(sender=sender)
 
         print(f"%%%%%%%%%%% AutoAlign Log: Previous completion Trial-{trial} %%%%%%%%%%%\n")
@@ -215,14 +215,14 @@ class AutoAlignVerifier:
         print()
         print(speaker.name)
         print()
-        print(reply['content'] if isinstance(reply, dict) else reply)
+        print(reply['content'] if isinstance(reply,dict) else reply)
         speaker.hook_lists["process_all_messages_before_reply"] = []
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
         return reply
 
     @staticmethod
-    async def a_mitigate_response(speaker: ConversableAgent, reply: Union[str, Dict[str, Any]], trial: int,
-                                  sender: ConversableAgent) -> Union[str, Dict[str, Any]]:
+    async def a_mitigate_response(speaker: ConversableAgent,reply: Union[str,Dict[str,Any]],trial: int,
+                                  sender: ConversableAgent) -> Union[str,Dict[str,Any]]:
         """
         This is asynchronous version of above function.
         This function runs the mitigation logic that is asks the speaker to regenerate the response.
@@ -237,17 +237,17 @@ class AutoAlignVerifier:
             Union[str, Dict[str, Any]]: Mitigated response
 
         """
-        completion = reply['content'] if isinstance(reply, dict) else reply
+        completion = reply['content'] if isinstance(reply,dict) else reply
 
-        def autoalign_mitigation_flow(received_messages: list[dict[str, Any]] | None):
+        def autoalign_mitigation_flow(received_messages: list[dict[str,Any]] | None):
             new_message_content = NEW_MITIGATION_PROMPT.format(completion=completion)
             if received_messages is not None:
-                received_messages.append({"role": "user", "content": new_message_content})
+                received_messages.append({"role": "user","content": new_message_content})
                 return received_messages
             else:
-                return [{"role": "user", "content": new_message_content}]
+                return [{"role": "user","content": new_message_content}]
 
-        speaker.register_hook("process_all_messages_before_reply", autoalign_mitigation_flow)
+        speaker.register_hook("process_all_messages_before_reply",autoalign_mitigation_flow)
         reply = speaker.a_generate_reply(sender=sender)
         trial += 1
         print(f"%%%%%%%%%%% AutoAlign Log: Previous completion Trial-{trial} %%%%%%%%%%%\n")
@@ -258,13 +258,13 @@ class AutoAlignVerifier:
         print()
         print(speaker.name)
         print()
-        print(reply['content'] if isinstance(reply, dict) else reply)
+        print(reply['content'] if isinstance(reply,dict) else reply)
         speaker.hook_lists["process_all_messages_before_reply"] = []
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
         return reply
 
     @staticmethod
-    def check_guardrails(request_url: str, text: str, selected_guardrails: List[str]):
+    def check_guardrails(request_url: str,text: str,selected_guardrails: List[str]):
         """Checks whether the given text passes through the applied guardrails."""
         config = DEFAULT_CONFIG.copy()
         for task in selected_guardrails:
@@ -284,7 +284,7 @@ class AutoAlignVerifier:
         json_data = json.dumps(request_body).encode('utf8')
         s = requests.Session()
         guard_response = []
-        with s.post(request_url, data=json_data, headers=header, stream=True) as resp:
+        with s.post(request_url,data=json_data,headers=header,stream=True) as resp:
             for line in resp.iter_lines():
                 guard_response.append(json.loads(line))
         for resp in guard_response:
@@ -293,7 +293,7 @@ class AutoAlignVerifier:
         return False
 
     @staticmethod
-    async def a_check_guardrails(request_url: str, text: str, selected_guardrails: List[str]):
+    async def a_check_guardrails(request_url: str,text: str,selected_guardrails: List[str]):
         """Checks whether the given text passes through the applied guardrails."""
         config = DEFAULT_CONFIG.copy()
         for task in selected_guardrails:
@@ -327,7 +327,40 @@ class AutoAlignVerifier:
                 return True
         return False
 
-    def validate_speaker_output(self, speaker: ConversableAgent, messages: Optional[List[Dict]], reply: str) -> bool:
+    @staticmethod
+    def factcheck(request_url: str,text: str,docs: List[str]):
+
+        request_body = {
+            "prompt": text,
+            "documents": docs,
+            "matching_scores": {
+                "score": 0.5
+            }
+        }
+        header = {
+            "x-api-key": os.getenv("AUTOALIGN_API_KEY")
+        }
+        response = requests.post(request_url,json=request_body,headers=header)
+        return response.text
+
+    @staticmethod
+    async def a_factcheck(request_url: str,text: str,docs: List[str]):
+
+        request_body = {
+            "prompt": text,
+            "documents": docs,
+            "matching_scores": {
+                "score": 0.5
+            }
+        }
+        header = {
+            "x-api-key": os.getenv("AUTOALIGN_API_KEY")
+        }
+        response = requests.post(request_url,json=request_body,headers=header)
+        return response.text
+
+
+    def validate_speaker_output(self,speaker: ConversableAgent,messages: Optional[List[Dict]],reply: str) -> bool:
         """
         This function executes the validation/verification logic for the generated response.
 
@@ -340,11 +373,11 @@ class AutoAlignVerifier:
             bool: if True then mitigation is required otherwise if False then mitigation is not required
 
         """
-        completion = reply['content'] if isinstance(reply, dict) else reply
+        completion = reply['content'] if isinstance(reply,dict) else reply
 
-        checking_agent = ConversableAgent("checking_agent", default_auto_reply=5)
+        checking_agent = ConversableAgent("checking_agent",default_auto_reply=5)
         checking_agent.register_reply(
-            [ConversableAgent, None],
+            [ConversableAgent,None],
             reply_func=self.validate_verifier_answer,  # Validate each response
             remove_other_reply_funcs=True,
         )
@@ -366,7 +399,7 @@ class AutoAlignVerifier:
         result = checking_agent.initiate_chat(
             verifier_agent,
             cache=None,  # don't use caching for the speaker selection chat
-            message=verification_prompt.format(system_message=speaker.system_message, response=completion,
+            message=verification_prompt.format(system_message=speaker.system_message,response=completion,
                                                name=speaker.name),
             max_turns=4,  # Limiting the chat to the number of attempts, including the initial one
             clear_history=False,
@@ -380,7 +413,7 @@ class AutoAlignVerifier:
         else:
             return True
 
-    async def a_validate_speaker_output(self, speaker: ConversableAgent, messages: Optional[List[Dict]],
+    async def a_validate_speaker_output(self,speaker: ConversableAgent,messages: Optional[List[Dict]],
                                         reply: str) -> bool:
         """
         Asynchronous version of above function.
@@ -395,11 +428,11 @@ class AutoAlignVerifier:
             bool: if True then mitigation is required otherwise if False then mitigation is not required
 
         """
-        completion = reply['content'] if isinstance(reply, dict) else reply
+        completion = reply['content'] if isinstance(reply,dict) else reply
 
-        checking_agent = ConversableAgent("checking_agent", default_auto_reply=5)
+        checking_agent = ConversableAgent("checking_agent",default_auto_reply=5)
         checking_agent.register_reply(
-            [ConversableAgent, None],
+            [ConversableAgent,None],
             reply_func=self.validate_verifier_answer,  # Validate each response
             remove_other_reply_funcs=True,
         )
@@ -421,7 +454,7 @@ class AutoAlignVerifier:
         result = await checking_agent.a_initiate_chat(
             verifier_agent,
             cache=None,  # don't use caching for the speaker selection chat
-            message=verification_prompt.format(system_message=speaker.system_message, response=completion,
+            message=verification_prompt.format(system_message=speaker.system_message,response=completion,
                                                name=speaker.name),
             max_turns=4,  # Limiting the chat to the number of attempts, including the initial one
             clear_history=False,
@@ -439,7 +472,7 @@ class AutoAlignVerifier:
                                  messages: Optional[List[Dict]] = None,
                                  sender: Optional[Agent] = None,
                                  config: Optional[Any] = None,
-                                 ) -> Tuple[bool, Union[str, Dict, None]]:
+                                 ) -> Tuple[bool,Union[str,Dict,None]]:
         """
         Validates the verifier's answer by adding constraints to it
 
@@ -458,24 +491,24 @@ class AutoAlignVerifier:
             selected_answer = next(iter(mentions))
 
             # Add the selected agent to the response so we can return it
-            messages.append({"role": "user", "content": f"[ANSWER SELECTED]{selected_answer}"})
+            messages.append({"role": "user","content": f"[ANSWER SELECTED]{selected_answer}"})
 
         elif len(mentions) > 1:
             # More than one name on requery so add additional reminder prompt for next retry
-            return True, {
+            return True,{
                 "content": select_answer_multiple_template,
                 "override_role": "system",
             }
 
         else:
-            return True, {
+            return True,{
                 "content": select_answer_none_template,
                 "override_role": "system",
             }
 
-        return True, None
+        return True,None
 
-    def _process_answer_selection_result(self, result: ChatResult) -> str:
+    def _process_answer_selection_result(self,result: ChatResult) -> str:
         """Checks the result of the verifier agent
 
         Used by validate_speaker_output and a_validate_speaker_output.
@@ -491,12 +524,12 @@ class AutoAlignVerifier:
 
             if "[ANSWER SELECTED]" in final_message:
 
-                return self.answer_by_name(final_message.replace("[ANSWER SELECTED]", ""))
+                return self.answer_by_name(final_message.replace("[ANSWER SELECTED]",""))
 
             else:  # "[ANSWER SELECTION FAILED]"
                 return "Yes"
 
-    def answer_by_name(self, provided_answer: str):
+    def answer_by_name(self,provided_answer: str):
         """
         Applies stricter condition on answer provided by the agent
         Args:
@@ -506,7 +539,7 @@ class AutoAlignVerifier:
             str: filtered response
 
         """
-        filtered_answers = [answer for answer in ["Yes", "No"] if answer == provided_answer]
+        filtered_answers = [answer for answer in ["Yes","No"] if answer == provided_answer]
 
         if len(filtered_answers) > 1:
             raise NotImplementedError("Multiple answers returned")
@@ -558,7 +591,7 @@ class AutoAlignGroupChat(GroupChat):
         attempt = 0
 
         # Registered reply function for checking_agent, checks the result of the response for agent names
-        def validate_speaker_name(recipient, messages, sender, config) -> Tuple[bool, Union[str, Dict, None]]:
+        def validate_speaker_name(recipient,messages,sender,config) -> Tuple[bool,Union[str,Dict,None]]:
 
             # The number of retries left, starting at max_retries_for_selecting_speaker
             nonlocal attempts_left
@@ -567,22 +600,22 @@ class AutoAlignGroupChat(GroupChat):
             attempt = attempt + 1
             attempts_left = attempts_left - 1
 
-            return self._validate_speaker_name(recipient, messages, sender, config, attempts_left, attempt, agents)
+            return self._validate_speaker_name(recipient,messages,sender,config,attempts_left,attempt,agents)
 
         # Two-agent chat for speaker selection
 
         # Agent for checking the response from the speaker_select_agent
-        checking_agent = ConversableAgent("checking_agent", default_auto_reply=max_attempts)
+        checking_agent = ConversableAgent("checking_agent",default_auto_reply=max_attempts)
 
         # Register the speaker validation function with the checking agent
         checking_agent.register_reply(
-            [ConversableAgent, None],
+            [ConversableAgent,None],
             reply_func=validate_speaker_name,  # Validate each response
             remove_other_reply_funcs=True,
         )
 
         checking_agent.register_reply(
-            [ConversableAgent, None],
+            [ConversableAgent,None],
             reply_func=self.validate_and_mitigate_selection_response,  # Validate each response
             position=0
         )
@@ -608,12 +641,12 @@ class AutoAlignGroupChat(GroupChat):
                 "override_role": self.role_for_select_speaker_messages,
             },
             max_turns=2
-                      * max(1, max_attempts),  # Limiting the chat to the number of attempts, including the initial one
+                      * max(1,max_attempts),  # Limiting the chat to the number of attempts, including the initial one
             clear_history=False,
             silent=not self.select_speaker_auto_verbose,  # Base silence on the verbose attribute
         )
 
-        return self._process_speaker_selection_result(result, last_speaker, agents)
+        return self._process_speaker_selection_result(result,last_speaker,agents)
 
     async def a_auto_select_speaker(
             self,
@@ -654,7 +687,7 @@ class AutoAlignGroupChat(GroupChat):
         attempt = 0
 
         # Registered reply function for checking_agent, checks the result of the response for agent names
-        def validate_speaker_name(recipient, messages, sender, config) -> Tuple[bool, Union[str, Dict, None]]:
+        def validate_speaker_name(recipient,messages,sender,config) -> Tuple[bool,Union[str,Dict,None]]:
             # The number of retries left, starting at max_retries_for_selecting_speaker
             nonlocal attempts_left
             nonlocal attempt
@@ -662,22 +695,22 @@ class AutoAlignGroupChat(GroupChat):
             attempt = attempt + 1
             attempts_left = attempts_left - 1
 
-            return self._validate_speaker_name(recipient, messages, sender, config, attempts_left, attempt, agents)
+            return self._validate_speaker_name(recipient,messages,sender,config,attempts_left,attempt,agents)
 
         # Two-agent chat for speaker selection
 
         # Agent for checking the response from the speaker_select_agent
-        checking_agent = ConversableAgent("checking_agent", default_auto_reply=max_attempts)
+        checking_agent = ConversableAgent("checking_agent",default_auto_reply=max_attempts)
 
         # Register the speaker validation function with the checking agent
         checking_agent.register_reply(
-            [ConversableAgent, None],
+            [ConversableAgent,None],
             reply_func=validate_speaker_name,  # Validate each response
             remove_other_reply_funcs=True,
         )
 
         checking_agent.register_reply(
-            [ConversableAgent, None],
+            [ConversableAgent,None],
             reply_func=self.a_validate_and_mitigate_selection_response,  # Validate each response
             position=0
         )
@@ -700,64 +733,64 @@ class AutoAlignGroupChat(GroupChat):
             cache=None,  # don't use caching for the speaker selection chat
             message=self.select_speaker_prompt(agents),
             max_turns=2
-                      * max(1, max_attempts),  # Limiting the chat to the number of attempts, including the initial one
+                      * max(1,max_attempts),  # Limiting the chat to the number of attempts, including the initial one
             clear_history=False,
             silent=not self.select_speaker_auto_verbose,  # Base silence on the verbose attribute
         )
 
-        return self._process_speaker_selection_result(result, last_speaker, agents)
+        return self._process_speaker_selection_result(result,last_speaker,agents)
 
     @staticmethod
-    def validate_and_mitigate_selection_response(recipient: ConversableAgent, messages: Optional[List[Dict]] = None,
+    def validate_and_mitigate_selection_response(recipient: ConversableAgent,messages: Optional[List[Dict]] = None,
                                                  sender: Optional[Agent] = None,
-                                                 config: Optional[Any] = None) -> Tuple[bool, Union[str, Dict, None]]:
+                                                 config: Optional[Any] = None) -> Tuple[bool,Union[str,Dict,None]]:
         """
         Applies AutoAlign Verifier Agent on selection agent (the agent which selects the next speaker)
         This function modifies the chat history.
         """
         autoalign_verifier = AutoAlignVerifier()
-        reply = autoalign_verifier.verify_and_mitigate_response(speaker=sender, reply=messages[-1],
-                                                                messages=messages, sender=recipient)
+        reply = autoalign_verifier.verify_and_mitigate_response(speaker=sender,reply=messages[-1],
+                                                                messages=messages,sender=recipient)
         messages[-1] = reply
-        return True, None
+        return True,None
 
     @staticmethod
     async def a_validate_and_mitigate_selection_response(recipient: ConversableAgent,
                                                          messages: Optional[List[Dict]] = None,
                                                          sender: Optional[Agent] = None,
                                                          config: Optional[Any] = None) -> \
-            Tuple[bool, Union[str, Dict, None]]:
+            Tuple[bool,Union[str,Dict,None]]:
         """
         Asynchronous method of above method.
         Applies AutoAlign Verifier Agent on selection agent (the agent which selects the next speaker)
         This function modifies the chat history.
         """
         autoalign_verifier = AutoAlignVerifier()
-        reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker=sender, reply=messages[-1],
-                                                                        messages=messages, sender=recipient)
+        reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker=sender,reply=messages[-1],
+                                                                        messages=messages,sender=recipient)
         messages[-1] = reply
-        return True, None
+        return True,None
 
 
-def _mentioned_answer(message_content: Union[str, List]):
-    if isinstance(message_content, dict):
+def _mentioned_answer(message_content: Union[str,List]):
+    if isinstance(message_content,dict):
         message_content = message_content["content"]
     message_content = content_str(message_content)
 
     mentions = dict()
-    for answer in ['Yes', 'No']:
+    for answer in ['Yes','No']:
         # Finds answer mentions, taking word boundaries into account,
         # accommodates escaping underscores and underscores as spaces
         regex = (
                 r"(?<=\W)("
                 + re.escape(answer)
                 + r"|"
-                + re.escape(answer.replace("_", " "))
+                + re.escape(answer.replace("_"," "))
                 + r"|"
-                + re.escape(answer.replace("_", r"\_"))
+                + re.escape(answer.replace("_",r"\_"))
                 + r")(?=\W)"
         )
-        count = len(re.findall(regex, f" {message_content} "))  # Pad the message to help with matching
+        count = len(re.findall(regex,f" {message_content} "))  # Pad the message to help with matching
         if count > 0:
             mentions[answer] = count
     return mentions
@@ -769,21 +802,21 @@ class AutoAlignGroupChatManager(GroupChatManager):
     reply to all the agents. The design pattern it follows is the 'observer pattern'.
     """
 
-    def __init__(self, groupchat: GroupChat, model_client_cls: Optional = None,
-                 selected_guardrails: Optional[List[str]] = None, **kwargs):
-        super().__init__(groupchat, **kwargs)
+    def __init__(self,groupchat: GroupChat,model_client_cls: Optional = None,
+                 selected_guardrails: Optional[List[str]] = None,**kwargs):
+        super().__init__(groupchat,**kwargs)
         # we will replace the existing reply functions with our functions that contain guardrail inference
         self.model_client_cls = model_client_cls
         self.selected_guardrails = selected_guardrails
-        self.replace_reply_func(GroupChatManager.run_chat, AutoAlignGroupChatManager.run_chat)
-        self.replace_reply_func(GroupChatManager.a_run_chat, AutoAlignGroupChatManager.a_run_chat)
+        self.replace_reply_func(GroupChatManager.run_chat,AutoAlignGroupChatManager.run_chat)
+        self.replace_reply_func(GroupChatManager.a_run_chat,AutoAlignGroupChatManager.a_run_chat)
 
     def run_chat(
             self,
             messages: Optional[List[Dict]] = None,
             sender: Optional[Agent] = None,
             config: Optional[GroupChat] = None,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> Tuple[bool,Optional[str]]:
         """
         This method is the controller function of AutoAlignGroupChatManager, it manages the entire chat
         """
@@ -792,14 +825,14 @@ class AutoAlignGroupChatManager(GroupChatManager):
         message = messages[-1]
         speaker = sender
         groupchat = config
-        send_introductions = getattr(groupchat, "send_introductions", False)
+        send_introductions = getattr(groupchat,"send_introductions",False)
 
         if send_introductions:
             # Broadcast the intro
             # observer pattern: broadcasts the event to all observers
             intro = groupchat.introductions_msg()
             for agent in groupchat.agents:
-                self.send(intro, agent, request_reply=False, silent=True)
+                self.send(intro,agent,request_reply=False,silent=True)
             # NOTE: We do not also append to groupchat.messages,
             # since groupchat handles its own introductions
 
@@ -808,25 +841,28 @@ class AutoAlignGroupChatManager(GroupChatManager):
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
-            groupchat.append(message, speaker)
+            groupchat.append(message,speaker)
             # broadcast the message to all agents except the speaker
             # observer pattern: broadcasts the event to all observers
             for agent in groupchat.agents:
                 if agent != speaker:
-                    self.send(message, agent, request_reply=False, silent=True)
+                    self.send(message,agent,request_reply=False,silent=True)
             if self._is_termination_msg(message) or i == groupchat.max_round - 1:
                 # The conversation is over or it's the last round
                 break
             try:
                 # select the next speaker
-                speaker = groupchat.select_speaker(speaker, self)
-                if not isinstance(speaker, AutoALignAssistantAgent):
+                speaker = groupchat.select_speaker(speaker,self)
+                if not isinstance(speaker,AutoALignAssistantAgent):
                     reply = speaker.generate_reply(sender=self)
                 else:
                     autoalign_verifier = AutoAlignVerifier()
                     input_guardrail_flag = False
 
-                    prompt = message['content'] if isinstance(message, dict) else message
+                    prompt = message['content'] if isinstance(message,dict) else message
+                    if isinstance(message,dict) and message.get("problem",None) is not None:
+                        prompt = message.get("problem")
+
                     if self.selected_guardrails and prompt:
                         input_guardrail_flag = autoalign_verifier.check_guardrails(
                             request_url="https://app.autoalign.ai/service/guardrail",
@@ -835,7 +871,7 @@ class AutoAlignGroupChatManager(GroupChatManager):
 
                     if input_guardrail_flag:
                         print("----------------Policy violated-------------------")
-                        reply = {"role": "assistant", "name": speaker.name,
+                        reply = {"role": "assistant","name": speaker.name,
                                  "content": "AutoAlign policy violated."}
                     else:
                         # let the speaker speak
@@ -843,18 +879,34 @@ class AutoAlignGroupChatManager(GroupChatManager):
                         # AutoAlign Verification and Mitigation
                         # here 'speaker' refers to the agent, and we will apply the
                         # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
-                        reply = autoalign_verifier.verify_and_mitigate_response(speaker, reply, messages, self)
+                        reply = autoalign_verifier.verify_and_mitigate_response(speaker,reply,messages,self)
                         output_guardrail_flag = False
                         if self.selected_guardrails:
                             output_guardrail_flag = autoalign_verifier.check_guardrails(
                                 request_url="https://app.autoalign.ai/service/guardrail",
-                                text=reply['content'] if isinstance(reply, dict) else reply,
+                                text=reply['content'] if isinstance(reply,dict) else reply,
                                 selected_guardrails=self.selected_guardrails)
 
                         if output_guardrail_flag:
                             print("----------------Policy violated-------------------")
-                            reply = {"role": "assistant", "name": speaker.name,
+                            reply = {"role": "assistant","name": speaker.name,
                                      "content": "AutoAlign policy violated."}
+
+                        else:
+                            documents = message.get("docs",None)
+                            if documents is not None:
+                                list_of_docs = [x["content"] for x in documents]
+                                fact_output  = autoalign_verifier.factcheck(request_url="https://app.autoalign.ai/service/factcheck",
+                                                             text=reply['content'] if isinstance(reply,dict) else reply,
+                                                             docs=list_of_docs)
+
+                                fact_output = json.loads(fact_output)
+
+                                if isinstance(reply,dict):
+                                    reply["content"] = reply["content"] + "\n\n"+ fact_output.get("response", "")
+
+                                else:
+                                    reply = reply + "\n\n"+ fact_output.get("response", "")
 
             except KeyboardInterrupt:
                 # let the admin agent speak if interrupted
@@ -876,20 +928,20 @@ class AutoAlignGroupChatManager(GroupChatManager):
             # check for "clear history" phrase in reply and activate clear history function if found
             if (
                     groupchat.enable_clear_history
-                    and isinstance(reply, dict)
+                    and isinstance(reply,dict)
                     and reply["content"]
                     and "CLEAR HISTORY" in reply["content"].upper()
             ):
-                reply["content"] = self.clear_agents_history(reply, groupchat)
+                reply["content"] = self.clear_agents_history(reply,groupchat)
 
             # The speaker sends the message without requesting a reply
-            speaker.send(reply, self, request_reply=False)
+            speaker.send(reply,self,request_reply=False)
             message = self.last_message(speaker)
         if self.client_cache is not None:
             for a in groupchat.agents:
                 a.client_cache = a.previous_cache
                 a.previous_cache = None
-        return True, None
+        return True,None
 
     async def a_run_chat(
             self,
@@ -906,13 +958,13 @@ class AutoAlignGroupChatManager(GroupChatManager):
         message = messages[-1]
         speaker = sender
         groupchat = config
-        send_introductions = getattr(groupchat, "send_introductions", False)
+        send_introductions = getattr(groupchat,"send_introductions",False)
 
         if send_introductions:
             # Broadcast the intro
             intro = groupchat.introductions_msg()
             for agent in groupchat.agents:
-                await self.a_send(intro, agent, request_reply=False, silent=True)
+                await self.a_send(intro,agent,request_reply=False,silent=True)
             # NOTE: We do not also append to groupchat.messages,
             # since groupchat handles its own introductions
 
@@ -921,7 +973,7 @@ class AutoAlignGroupChatManager(GroupChatManager):
                 a.previous_cache = a.client_cache
                 a.client_cache = self.client_cache
         for i in range(groupchat.max_round):
-            groupchat.append(message, speaker)
+            groupchat.append(message,speaker)
 
             if self._is_termination_msg(message):
                 # The conversation is over
@@ -930,28 +982,28 @@ class AutoAlignGroupChatManager(GroupChatManager):
             # broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
                 if agent != speaker:
-                    await self.a_send(message, agent, request_reply=False, silent=True)
+                    await self.a_send(message,agent,request_reply=False,silent=True)
             if i == groupchat.max_round - 1:
                 # the last round
                 break
             try:
                 # select the next speaker
-                speaker = await groupchat.a_select_speaker(speaker, self)
+                speaker = await groupchat.a_select_speaker(speaker,self)
                 # let the speaker speak
-                if not isinstance(speaker, AutoALignAssistantAgent):
+                if not isinstance(speaker,AutoALignAssistantAgent):
                     reply = await speaker.a_generate_reply(sender=self)
                 else:
                     autoalign_verifier = AutoAlignVerifier()
                     input_guardrail_flag = False
 
-                    prompt = message['content'] if isinstance(message, dict) else message
+                    prompt = message['content'] if isinstance(message,dict) else message
                     if self.selected_guardrails and prompt:
                         input_guardrail_flag = await autoalign_verifier.a_check_guardrails(
                             request_url="https://app.autoalign.ai/service/guardrail",
                             text=prompt,
                             selected_guardrails=self.selected_guardrails)
                     if input_guardrail_flag:
-                        reply = {"role": "assistant", "name": speaker.name,
+                        reply = {"role": "assistant","name": speaker.name,
                                  "content": "AutoAlign policy violated."}
                     else:
                         # let the speaker speak
@@ -959,16 +1011,16 @@ class AutoAlignGroupChatManager(GroupChatManager):
                         # AutoAlign Verification and Mitigation
                         # here 'speaker' refers to the agent, and we will apply the
                         # 'verify_and_mitigate_response' function just after we receive the reply from the speaker.
-                        reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker, reply, messages, self)
+                        reply = await autoalign_verifier.a_verify_and_mitigate_response(speaker,reply,messages,self)
                         output_guardrail_flag = False
                         if self.selected_guardrails:
                             output_guardrail_flag = await autoalign_verifier.a_check_guardrails(
                                 request_url="https://app.autoalign.ai/service/guardrail",
-                                text=reply['content'] if isinstance(reply, dict) else reply,
+                                text=reply['content'] if isinstance(reply,dict) else reply,
                                 selected_guardrails=self.selected_guardrails)
 
                         if output_guardrail_flag:
-                            reply = {"role": "assistant", "name": speaker.name,
+                            reply = {"role": "assistant","name": speaker.name,
                                      "content": "AutoAlign policy violated."}
 
             except KeyboardInterrupt:
@@ -983,10 +1035,55 @@ class AutoAlignGroupChatManager(GroupChatManager):
             if reply is None:
                 break
             # The speaker sends the message without requesting a reply
-            await speaker.a_send(reply, self, request_reply=False)
+            await speaker.a_send(reply,self,request_reply=False)
             message = self.last_message(speaker)
         if self.client_cache is not None:
             for a in groupchat.agents:
                 a.client_cache = a.previous_cache
                 a.previous_cache = None
-        return True, None
+        return True,None
+
+    def _append_oai_message(self,message: Union[Dict,str],role,conversation_id: Agent) -> bool:
+        """Append a message to the ChatCompletion conversation.
+
+        If the message received is a string, it will be put in the "content" field of the new dictionary.
+        If the message received is a dictionary but does not have any of the three fields "content", "function_call", or "tool_calls",
+            this message is not a valid ChatCompletion message.
+        If only "function_call" or "tool_calls" is provided, "content" will be set to None if not provided, and the role of the message will be forced "assistant".
+
+        Args:
+            message (dict or str): message to be appended to the ChatCompletion conversation.
+            role (str): role of the message, can be "assistant" or "function".
+            conversation_id (Agent): id of the conversation, should be the recipient or sender.
+
+        Returns:
+            bool: whether the message is appended to the ChatCompletion conversation.
+        """
+        message = self._message_to_dict(message)
+        # create oai message to be appended to the oai conversation that can be passed to oai directly.
+        oai_message = {
+            k: message[k]
+            for k in
+            ("content","function_call","tool_calls","tool_responses","tool_call_id","name","context","problem","docs")
+            if k in message and message[k] is not None
+        }
+        if "content" not in oai_message:
+            if "function_call" in oai_message or "tool_calls" in oai_message:
+                oai_message["content"] = None  # if only function_call is provided, content will be set to None.
+            else:
+                return False
+
+        if message.get("role") in ["function","tool"]:
+            oai_message["role"] = message.get("role")
+        elif "override_role" in message:
+            # If we have a direction to override the role then set the
+            # role accordingly. Used to customise the role for the
+            # select speaker prompt.
+            oai_message["role"] = message.get("override_role")
+        else:
+            oai_message["role"] = role
+
+        if oai_message.get("function_call",False) or oai_message.get("tool_calls",False):
+            oai_message["role"] = "assistant"  # only messages with role 'assistant' can have a function call.
+        self._oai_messages[conversation_id].append(oai_message)
+        return True
